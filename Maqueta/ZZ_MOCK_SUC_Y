@@ -1,0 +1,172 @@
+CREATE OR REPLACE TABLE BI_SUCURSALES_BANCO.ZZ_MOCK_SUC_Y AS
+WITH analisis as (
+SELECT
+-- Datos de Sucursal
+NO_NOM_SUC, PERIODO, DIVISION, ZONA, SUCURSAL, FORMATO, TIPOLOGIA,
+--Datos de RENTABILIDAD
+UTILIDAD_NETA,est.UTILIDAD_NETA_Zona,
+LAG(Utilidad_Neta) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AS UTILIDAD_NETA_ANTERIOR,
+(UTILIDAD_NETA - LAG(Utilidad_Neta) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO))/ LAG(Utilidad_Neta) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AS UTILIDAD_NETA_VARIACION,
+-- DATOS DE CALIDAD DE CARTERA
+CARTERA_VIGENTE, CARTERA_VENCIDA, est.CARTERA_VENCIDA_ZONA,CARTERA_VENCIDA/(CARTERA_VIGENTE + CARTERA_VENCIDA) AS INMOR, est.INMOR_Zona,
+LAG(CARTERA_VENCIDA/(CARTERA_VIGENTE+CARTERA_VENCIDA)) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AS INMOR_ANTERIOR,
+--Prestamo personal
+SALDO_VIGENTE_PP , SALDO_VENCIDO_PP,est.CARTERA_VENCIDAPP_ZONA,SALDO_VENCIDO_PP/(SALDO_VIGENTE_PP + SALDO_VENCIDO_PP) AS INMOR_PP, est.INMOR_PP_Zona,
+--tdc
+SALDO_VIGENTE_TDC , SALDO_VENCIDO_TDC,est.CARTERA_VENCIDATDC_ZONA,SALDO_VENCIDO_TDC/(SALDO_VIGENTE_TDC + SALDO_VENCIDO_TDC) AS INMOR_TDC, est.INMOR_TDC_Zona,
+--INDICADORES DE EFICIENCIA
+safe_divide(ABS(GASTOS_DE_OPERACION),INGRESOS_NETOS) AS EFICIENCIA_OPERATIVA,
+safe_divide(ABS(REMUNERACIONES_Y_PRESTACIONES_AL_PERSONAL),MARGEN_FINANCIERO) AS EFICIENCIA_PERSONAL,
+est.EFICIENCIA_OPERATIVA_ZONA, est.EFICIENCIA_PERSONAL_ZONA,
+-- CUMPLIMIENTO DE METAS
+ROUND(0.70 + RAND() * (1.20 - 0.76), 2) AS CUMPLIMIENTO_METAS,
+ROUND(0.70 + RAND() * (1.20 - 0.76), 2) AS CUMPLIMIENTO_METAS_ZONA,
+ROUND(-0.15 + RAND() * (0.3), 2) CUMPLIMIENTO_METAS_VARIACION,
+-- DATOS DE USO
+ROUND(0.60 + RAND() * (0.85 - 0.60), 2) AS PRIMERA_COMPRA,
+ROUND(0.60 + RAND() * (0.85 - 0.60), 2) AS PRIMERA_COMPRA_ZONA,
+ROUND(-0.1 + RAND() * (0.2), 2) PRIMERA_COMPRA_VARIACION
+FROM `BI_SUCURSALES_BANCO.Tabla_Final`
+LEFT JOIN (
+  SELECT
+  PERIODO AS PERIODO_JOIN,
+  ZONA AS ZONA_JOIN,
+  AVG(CARTERA_VENCIDA) AS CARTERA_VENCIDA_ZONA,
+  AVG(CARTERA_VIGENTE) AS CARTERA_VIGENTE_ZONA,
+  SUM(CARTERA_VENCIDA)/(SUM(CARTERA_VIGENTE)+(SUM(CARTERA_VENCIDA))) AS INMOR_Zona,
+ 
+  AVG(SALDO_VENCIDO_PP) AS CARTERA_VENCIDAPP_ZONA,
+  AVG(SALDO_VIGENTE_PP) AS CARTERA_VIGENTEPP_ZONA,
+  SUM(SALDO_VENCIDO_PP)/(SUM(SALDO_VIGENTE_PP)+(SUM(SALDO_VENCIDO_PP))) AS INMOR_PP_Zona,
+ 
+  AVG(SALDO_VENCIDO_TDC) AS CARTERA_VENCIDATDC_ZONA,
+  AVG(SALDO_VIGENTE_TDC) AS CARTERA_VIGENTETDC_ZONA,
+  SUM(SALDO_VENCIDO_TDC)/(SUM(SALDO_VIGENTE_TDC)+(SUM(SALDO_VENCIDO_TDC))) AS INMOR_TDC_Zona,
+ 
+  AVG(UTILIDAD_NETA) AS UTILIDAD_NETA_Zona,
+  safe_divide(SUM(ABS( GASTOS_DE_OPERACION)),SUM(INGRESOS_NETOS)) AS EFICIENCIA_OPERATIVA_ZONA,
+  safe_divide(SUM(ABS(REMUNERACIONES_Y_PRESTACIONES_AL_PERSONAL)),SUM(MARGEN_FINANCIERO)) AS EFICIENCIA_PERSONAL_ZONA
+FROM `BI_SUCURSALES_BANCO.Tabla_Final` WHERE TIPO NOT IN ("Of.Adm") AND DIVISION IS NOT NULL AND DIVISION NOT IN ("Canales Digitales") GROUP BY PERIODO, ZONA
+)est
+ON ZONA = ZONA_JOIN AND PERIODO = est.PERIODO_JOIN
+WHERE TIPO NOT IN ("Of.Adm") AND DIVISION IS NOT NULL AND DIVISION NOT IN ("Canales Digitales")AND SUCURSAL IN (1,6,8,9,10,11,12,13,14,15,144,359,577) AND DATE (PERIODO) >= DATE '2024-01-01'
+)
+ 
+select *,
+--Calificación de salud
+IF (analisis.Utilidad_Neta > 0, 25, 0) + IF (analisis.Utilidad_Neta >= analisis.UTILIDAD_NETA_ANTERIOR, 10, 0) + IF (analisis.Utilidad_Neta >= analisis.UTILIDAD_NETA_Zona, 5, 0)
+--INMOR
++ (CASE
+  WHEN analisis.INMOR <= 0.12 THEN 10
+  WHEN analisis.INMOR <= 0.14 THEN 5
+  ELSE 0
+END)
++ IF (analisis.INMOR <= analisis.INMOR_ANTERIOR , 5, 0) + IF (analisis.INMOR <= analisis.INMOR_ZONA , 5, 0)
+--Cumplimiento Metas
++ (CASE
+  WHEN analisis.CUMPLIMIENTO_METAS >= 0.95 THEN 10
+  WHEN analisis.CUMPLIMIENTO_METAS >= 0.85 THEN 5
+  ELSE 0
+END)
+ + IF (analisis.CUMPLIMIENTO_METAS_VARIACION > 0, 5, 0)
+ + IF (analisis.CUMPLIMIENTO_METAS >= analisis.CUMPLIMIENTO_METAS_ZONA, 5, 0)
+--Primera Compra
++ (CASE
+  WHEN analisis.CUMPLIMIENTO_METAS >= 0.8 THEN 10
+  WHEN analisis.CUMPLIMIENTO_METAS >= 0.7 THEN 5
+  ELSE 0
+END)
+ + IF (analisis.PRIMERA_COMPRA_VARIACION > 0, 5, 0)
+ + IF (analisis.PRIMERA_COMPRA_ZONA > 0, 5, 0) AS Indice_Salud,
+ 
+CONCAT("Durante el periodo analizado: la sucursal obtuvo una utilidad neta de $ ", FORMAT('%.2f', analisis.UTILIDAD_NETA),
+CONCAT(IF(analisis.Utilidad_Neta > 0," lo cual le otorgo 25 puntos. ","por lo cual perdió 25 puntos. "),
+ 
+IF(UTILIDAD_NETA > analisis.UTILIDAD_NETA_ANTERIOR,
+  CONCAT(
+  "Se nota un 🟢 Incremento de ",
+  FORMAT ('%.1f',UTILIDAD_NETA_VARIACION * 100),
+  "% frente a la utilidad neta lograda el  en el mismo periodo del año anterior. "
+  ),
+  CONCAT(
+  "Se observa un 🔴 Decremento de ",
+  FORMAT ('%.1f',UTILIDAD_NETA_VARIACION * 100),
+  "% respecto a la utilidad neta registrada en el mismo periodo del año anterior. "
+  )),
+IF(UTILIDAD_NETA >= analisis.UTILIDAD_NETA_Zona,
+      " Además 🟢 ganó 5 puntos adicionales por superar el promedio de su zona en un ",
+      " Además 🔴 perdió 5 puntos al estar debajo del promedio en un "), FORMAT ('%.1f',((analisis.Utilidad_Neta-analisis.UTILIDAD_NETA_Zona)/analisis.Utilidad_Neta)*100), "%",
+ 
+  IF (analisis.INMOR <= 0.12, ",El índice de morosidad se mantiene en niveles 🟢 óptimos por debajo del 12 % lo que evidencia un adecuado control del riesgo crediticio y suma 10 puntos a la calificación otorgada. ",
+  IF (analisis.INMOR<= 0.14, ",El índice de morosidad se encuentra en niveles 🟡 Moderados: Superando el 12% sugerido lo que implica la necesidad de monitoreo preventivo y una calificación de  de 5 puntos en este rubro. ", ",El Índice de Morosidad es 🔴 Critico: Superando el umbral del 14% lo que representa un riesgo financiero significativo y una perdida de 15 puntos.  ")),  
+ 
+  IF(CUMPLIMIENTO_METAS >= 0.95,
+   CONCAT(
+     ",La sucursal logró un cumplimiento del ",
+     FORMAT('%.0f', CUMPLIMIENTO_METAS * 100),
+     "% de su Meta general logrando un desempeño 🟢 alto. Este desempeño refleja una ejecución efectiva de la estrategia operativa permitiendo sumar 10 puntos al dictamen."
+   ),
+     IF(CUMPLIMIENTO_METAS >= 0.85,
+         CONCAT(
+        ",La sucursal alcanzó un ",
+        FORMAT('%.0f', CUMPLIMIENTO_METAS * 100),
+        "% de su Meta general lo cual 🟡 Requiere acciones comerciales para alcanzar el objetivo anual. Este desempeño otorga 5 puntos y sugiere revisar tácticamente los indicadores específicos que impidieron alcanzar el máximo potencial. "
+      ),
+        CONCAT(
+        ",El cumplimiento de Metas generales en la sucursal fue 🔴 Bajo con un ",
+        FORMAT('%.0f', CUMPLIMIENTO_METAS * 100),
+        "% lo que exige una revisiòn de estrategias operativas. Esta situación implicó una pérdida de los 15 puntos potenciales."))),
+ 
+  IF(CUMPLIMIENTO_METAS_VARIACION >= 0 ,
+   CONCAT(
+     " La sucursal mejoró su nivel de cumplimiento respecto al año anterior en ", CUMPLIMIENTO_METAS_VARIACION, "% obteniendo 5 puntos adicionales."
+   ),
+   CONCAT(
+     " La sucursal 🔴 disminuyó su nivel de cumplimiento frente al año anterior en ", CUMPLIMIENTO_METAS_VARIACION, "% no logrando los 5 puntos adicionales. ")),
+ 
+  IF(CUMPLIMIENTO_METAS >= CUMPLIMIENTO_METAS_ZONA ,
+   CONCAT(
+     " Ademas de lograr 🟢 Superar la media de cumplimiento dentro de la zona ",
+     ZONA,
+     " por un ", FORMAT('%.0f', (CUMPLIMIENTO_METAS - CUMPLIMIENTO_METAS_ZONA)*100), "% obteniendo 5 puntos adicionales."
+   ),
+   CONCAT(
+     ",La Sucursal 🔴 No logro superar la media de cumplimiento dentro de la zona ",
+     ZONA,
+     " estando debajo por un ", FORMAT('%.0f', (CUMPLIMIENTO_METAS - CUMPLIMIENTO_METAS_ZONA)*100), "% perdiendo 5 puntos. ")),
+ 
+  IF(PRIMERA_COMPRA >= 0.8,
+  CONCAT(
+     ",Respecto al uso de las tarjetas la sucursal reporto una tasa de Primera Compra del ", CAST(FORMAT('%.0f', PRIMERA_COMPRA * 100) AS STRING), "% evidenciando una 🟢 Buena retención inicial y otorgando 10 puntos. "),
+     IF(PRIMERA_COMPRA >= 0.7,
+     CONCAT(
+        ",El porcentaje de uso vinculado a la Primera Compra fue 🟡 Moderado (", CAST(FORMAT('%.0f', PRIMERA_COMPRA * 100) AS STRING), "%) con oportunidad de mejora en onboarding de productos. Se asignan 5 puntos. "),
+        CONCAT(
+        ",La tasa de Primera Compra fue 🔴 Baja (", CAST(FORMAT('%.0f', PRIMERA_COMPRA * 100) AS STRING), "%) lo que sugiere fortalecer la estrategia de activación de nuevos clientes. "))))
+      ) AS DICTAMEN_COMPLETO,
+ 
+CONCAT(
+CONCAT("Revisar acciones y dictamen de los colaborades",
+ 
+CASE
+  WHEN PRIMERA_COMPRA >= 0.7 AND INMOR < INMOR_ZONA THEN
+    ',✅ Activación y perfilamiento efectivos. Recomendación: replicar prácticas exitosas en periodos posteriores.'
+   
+  WHEN PRIMERA_COMPRA >= 0.7 AND INMOR >= INMOR_ZONA THEN
+    ',⚠️ El producto se activa, pero se observa alto riesgo. Reforzar evaluación crediticia y capacitación en venta responsable.'
+ 
+  WHEN PRIMERA_COMPRA < 0.7 AND INMOR < INMOR_ZONA THEN
+    ',🟨 El producto no se activa, aunque no representa riesgo. Mejorar comunicación del valor y seguimiento en el onboarding.'
+ 
+  WHEN PRIMERA_COMPRA < 0.7 AND INMOR >= INMOR_ZONA THEN
+    ',❌ Activación baja y alto riesgo. Posible sobrecolocación sin entendimiento del cliente. Requiere revisión profunda del modelo comercial y acompañamiento cercano.'
+ 
+  ELSE 'Información insuficiente para emitir recomendación.'
+END),
+ 
+CONCAT(
+CASE
+  WHEN EFICIENCIA_PERSONAL > EFICIENCIA_PERSONAL_ZONA THEN
+    ",EFICIENCIA PERSONAL alta contra el promedio de zona. Tratar de bajar gastos de personal o ayudar a los colaboradores a rendir mas" ELSE "" END)) AS RECOMENDACION_PRIN
+from analisis
+ 
