@@ -1,0 +1,179 @@
+CREATE OR REPLACE TABLE BI_SUCURSALES_BANCO.ZZ_MOCK_SUC_Y_CARTERA AS
+ 
+SELECT PERIODO, SUCURSAL, "INMOR Cartera" AS CONCEPTO,
+INMOR AS ACTUAL, INMOR_ZONA AS ZONA,
+LAG(INMOR) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AS ANTERIOR,
+((LAG(INMOR) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO))- INMOR) AS VARIACION,
+  CASE
+    WHEN INMOR < 0.10
+      THEN '🟢 Excelente'
+    WHEN INMOR < 0.14
+      THEN '🟡 Estable con tendencia en alza'
+    WHEN INMOR > 0.14
+      THEN '🔴 Crítico'
+  END AS Estado,
+ 
+  CASE
+    WHEN INMOR < LAG(INMOR) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR < INMOR_Zona
+      THEN 'Mejor que la zona y con tendencia a la baja'
+ 
+    WHEN INMOR > LAG(INMOR) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR < INMOR_Zona
+      THEN 'Mejor que la zona y Con tendencia en alza'
+ 
+    WHEN INMOR > LAG(INMOR) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR > INMOR_Zona
+      THEN 'Peor que la zona y Con tendencia en alza'
+ 
+    WHEN INMOR < LAG(INMOR) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR > INMOR_Zona
+      THEN 'Peor que la zona y Con tendencia a la baja'
+  END AS Dictamen,
+ 
+  "NULL" AS RECOMENDACION
+ 
+FROM `BI_SUCURSALES_BANCO.ZZ_MOCK_SUC_Y`
+ 
+UNION ALL
+ 
+SELECT PERIODO, SUCURSAL,"INMOR Pp" AS CONCEPTO,
+INMOR_PP AS ACTUAL, INMOR_PP_ZONA AS ZONA,
+LAG(INMOR_PP) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AS ANTERIOR,
+((LAG(INMOR_PP) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO))- INMOR_PP) AS VARIACION,
+  CASE
+    WHEN INMOR_PP < 0.10
+      THEN '🟢 Excelente'
+    WHEN INMOR_PP < 0.14
+      THEN '🟡 Estable con tendencia en alza'
+    WHEN INMOR_PP > 0.14
+      THEN '🔴 Crítico'
+  END AS Estado,
+ 
+  CASE
+    WHEN INMOR_PP < LAG(INMOR_PP) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR_PP < INMOR_PP_Zona
+      THEN 'Mejor que la zona y Con tendencia a la baja'
+ 
+    WHEN INMOR_PP > LAG(INMOR_PP) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR_PP < INMOR_PP_Zona
+      THEN 'Mejor que la zona y Con tendencia en alza'
+ 
+    WHEN INMOR_PP > LAG(INMOR_PP) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR > INMOR_PP_Zona
+      THEN 'Peor que la zona y Con tendencia en alza'
+ 
+    WHEN INMOR_PP < LAG(INMOR_PP) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR > INMOR_PP_Zona
+      THEN 'Peor que la zona y Con tendencia a la baja'
+  END AS Dictamen,
+ 
+"NULL" AS RECOMENDACION
+ 
+FROM `BI_SUCURSALES_BANCO.ZZ_MOCK_SUC_Y`
+ 
+  UNION ALL
+ 
+  SELECT PERIODO, SUCURSAL, "INMOR TDC" AS CONCEPTO,
+INMOR_TDC AS CONCEPTO, INMOR_TDC_ZONA AS INMOR_ZONA,
+LAG(INMOR_TDC) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AS INMORPP_ANTERIOR,
+((LAG(INMOR_TDC) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO))- INMOR_TDC) AS INMORPP_VARIACION,
+  CASE
+    WHEN INMOR_TDC < 0.10
+      THEN '🟢 Excelente'
+    WHEN INMOR_TDC < 0.14
+      THEN '🟡 Estable con tendencia en alza'
+    WHEN INMOR_TDC > 0.14
+      THEN '🔴 Crítico'
+  END AS Estado,
+ 
+  CASE
+    WHEN INMOR_TDC < LAG(INMOR_TDC) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR_TDC < INMOR_TDC_Zona
+      THEN 'Mejor que la zona y Con tendencia a la baja'
+ 
+    WHEN INMOR_TDC > LAG(INMOR_TDC) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR_TDC < INMOR_TDC_Zona
+      THEN 'Mejor que la zona y Con tendencia en alza'
+ 
+    WHEN INMOR_TDC > LAG(INMOR_TDC) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR > INMOR_TDC_Zona
+      THEN 'Peor que la zona y Con tendencia en alza'
+ 
+    WHEN INMOR_TDC < LAG(INMOR_TDC) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND INMOR > INMOR_TDC_Zona
+      THEN 'Peor que la zona y Con tendencia a la baja'
+  END AS Dictamen,
+ 
+  "NULL" AS RECOMENDACION
+ 
+  FROM `BI_SUCURSALES_BANCO.ZZ_MOCK_SUC_Y`
+ 
+UNION ALL
+ 
+SELECT PERIODO, SUCURSAL, "Cumplimiento Metas" AS CONCEPTO,
+CUMPLIMIENTO_METAS AS ACTUAL, CUMPLIMIENTO_METAS_ZONA AS ZONA,
+LAG(CUMPLIMIENTO_METAS) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AS ANTERIOR,
+CUMPLIMIENTO_METAS_VARIACION AS VARIACION,
+  CASE
+    WHEN CUMPLIMIENTO_METAS >= 0.98
+      THEN '🟢 Optimo'
+    WHEN CUMPLIMIENTO_METAS > 0.85
+      THEN '🟡 En observación'
+    WHEN CUMPLIMIENTO_METAS <= 0.85
+      THEN '🔴 Crítico'
+  END AS Estado,
+ 
+  CASE
+    WHEN CUMPLIMIENTO_METAS > LAG(CUMPLIMIENTO_METAS) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND CUMPLIMIENTO_METAS > CUMPLIMIENTO_METAS_Zona
+      THEN 'Mejor que la zona y con tendencia en alza'
+ 
+    WHEN CUMPLIMIENTO_METAS < LAG(CUMPLIMIENTO_METAS) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND CUMPLIMIENTO_METAS > CUMPLIMIENTO_METAS_Zona
+      THEN 'Mejor que la zona y con tendencia a la baja'
+ 
+    WHEN CUMPLIMIENTO_METAS > LAG(CUMPLIMIENTO_METAS) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND CUMPLIMIENTO_METAS < CUMPLIMIENTO_METAS_Zona
+      THEN 'Peor que la zona y Con tendencia en alza'
+ 
+    WHEN CUMPLIMIENTO_METAS < LAG(CUMPLIMIENTO_METAS) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND CUMPLIMIENTO_METAS < CUMPLIMIENTO_METAS_Zona
+      THEN 'Peor que la zona y Con tendencia a la baja'
+  END AS Dictamen,
+ 
+CASE
+    WHEN CUMPLIMIENTO_METAS >= 0.8
+      THEN ' Felicitación pública y personal al equipo y responsables, Pedir retroalimentación al equipo durante las minijuntas sobre qué funcionó bien'
+    WHEN CUMPLIMIENTO_METAS > 0.7
+      THEN 'Mantener rutinas de seguimiento efectivo (revisión de metas diarias o semanales),  Motivar al equipo a identificar oportunidades de mejora o eficiencia propia'
+    WHEN CUMPLIMIENTO_METAS <= 0.7
+      THEN 'Establecer Reuniones diarias breves de enfoque con colaboradores resagados para recuperar el cumplimiento, Activar micro-capacitaciones semanales con ejemplos prácticos'
+  END AS RECOMENDACION
+ 
+FROM `BI_SUCURSALES_BANCO.ZZ_MOCK_SUC_Y`
+ 
+UNION ALL
+ 
+SELECT PERIODO, SUCURSAL, "PRIMERA COMPRA" AS CONCEPTO,
+PRIMERA_COMPRA AS ACTUAL, PRIMERA_COMPRA_ZONA AS ZONA,
+LAG(PRIMERA_COMPRA) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AS ANTERIOR,
+PRIMERA_COMPRA_VARIACION AS VARIACION,
+  CASE
+    WHEN PRIMERA_COMPRA >= 0.8
+      THEN '🟢 En linea'
+    WHEN PRIMERA_COMPRA > 0.7
+      THEN '🟡 En observación'
+    WHEN PRIMERA_COMPRA <= 0.7
+      THEN '🔴 Crítico'
+  END AS Estado,
+ 
+  CASE
+    WHEN PRIMERA_COMPRA > LAG(PRIMERA_COMPRA) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND PRIMERA_COMPRA > PRIMERA_COMPRA_Zona
+      THEN 'Mejor que la zona y con tendencia en alza'
+ 
+    WHEN PRIMERA_COMPRA < LAG(PRIMERA_COMPRA) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND PRIMERA_COMPRA > PRIMERA_COMPRA_Zona
+      THEN 'Mejor que la zona y con tendencia a la baja'
+ 
+    WHEN PRIMERA_COMPRA > LAG(PRIMERA_COMPRA) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND PRIMERA_COMPRA < PRIMERA_COMPRA_Zona
+      THEN 'Peor que la zona y Con tendencia en alza'
+ 
+    WHEN PRIMERA_COMPRA < LAG(PRIMERA_COMPRA) OVER (PARTITION BY Sucursal,EXTRACT(MONTH FROM PERIODO) ORDER BY PERIODO) AND PRIMERA_COMPRA < PRIMERA_COMPRA_Zona
+      THEN 'Peor que la zona y Con tendencia a la baja'
+  END AS Dictamen,
+  CASE
+    WHEN PRIMERA_COMPRA >= 0.8
+      THEN 'Reconocer públicamente al equipo o responsable, Documentar prácticas exitosas y compartir con otras sucursales, Mantener enfoque: asegurar que la activación se traduzca en uso recurrente y no solo en una primera compra simbólica'
+     
+    WHEN PRIMERA_COMPRA > 0.7
+      THEN 'Continuar con rutinas de revisión y seguimiento posterior a la colocación, Motivar al equipo con retroalimentación positiva, Mantener registro semanal de tasas de activación por ejecutivo para identificar mejoras sostenidas'
+    WHEN PRIMERA_COMPRA <= 0.7
+      THEN 'Verificar activación en el momento de entrega cuando sea posible, Asignar seguimiento personalizado dentro de los primeros 3 días, Asegurar que el cliente entienda el uso y beneficios básicos de la tarjeta, Supervisar que el equipo utilice un guion claro de activación'
+  END AS RECOMENDACION
+ 
+FROM `BI_SUCURSALES_BANCO.ZZ_MOCK_SUC_Y`
+ 
